@@ -1,0 +1,35 @@
+# fly.io — https://docs.fly.io/reference/configuration
+#
+# Avant le premier déploiement :
+#   1. fly auth login
+#   2. fly apps create ndious-pokedex     (nom unique, adapter ci-dessous)
+#   3. fly deploy
+# Le nom ci-dessous doit correspondre à celui de l'application créée.
+
+app = "ndious-pokedex"
+primary_region = "cdg" # Paris
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  # Le proxy fly.io requiert une liaison globale.
+  HOST = "0.0.0.0"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -115,6 +115,30 @@ Pokémon via le Pokédex (les suffixes ex, V, VMAX, GX… sont conservés) —
 16 500+ cartes sont ainsi en français. Les cartes Dresseur/Énergie et les
 variantes régionales restent en anglais.
 
+## Déploiement sur fly.io
+
+La configuration est prête (`fly.toml` + `Dockerfile` + `.dockerignore`).
+L'image construit le serveur Rust en release et embarque les données TCG.
+
+```console
+$ fly auth login                     # flyctl : https://fly.io/docs/flyctl/
+$ fly apps create ndious-pokedex     # nom unique, à reporter dans fly.toml
+$ fly deploy
+```
+
+Détails :
+
+- `fly.toml` référence `app = "ndious-pokedex"` — utilisez votre nom
+  d'application et une région proche (`primary_region`, ici `cdg` = Paris).
+- Le serveur lie `HOST=0.0.0.0` `PORT=8080` (requis par le proxy fly),
+  configurés dans la section `[env]`.
+- Machine minimale : `shared-cpu-1x`, 512 Mo (le catalogue fait ~19 Mo en
+  mémoire vive au chargement).
+- `auto_stop_machines` arrête la machine au repos et la réveille à la
+  première requête (facturation à l'usage).
+- Après un changement des données, régénérez `data/tcg_cards.json` puis
+  relancez `fly deploy` : l'image embarque les données au build.
+
 ## Architecture
 
 ```

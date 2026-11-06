@@ -56,8 +56,14 @@ async fn main() -> anyhow::Result<()> {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(8080);
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
-    println!("Interface web : http://127.0.0.1:{port}");
+    // 0.0.0.0 sous fly.io (le proxy externe y exige une liaison globale),
+    // 127.0.0.1 par défaut en local.
+    let host: std::net::IpAddr = std::env::var("HOST")
+        .ok()
+        .and_then(|h| h.parse().ok())
+        .unwrap_or(std::net::IpAddr::from([127, 0, 0, 1]));
+    let listener = tokio::net::TcpListener::bind((host, port)).await?;
+    println!("Interface web : http://{host}:{port}");
     axum::serve(listener, app).await?;
     Ok(())
 }

@@ -1,0 +1,7 @@
+# Contexte Docker minimal : le build embarque pokedex.json et lit les
+# fichiers TCG dans l'image finale.
+target/
+.git/
+data/raw/
+data/tcg_cards.partial*
+/tmp/
