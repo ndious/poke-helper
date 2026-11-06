@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pokédex interactif</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #171f31; --panel2: #1e2942; --border: #2c3a5c;
+    --text: #e8ecf5; --muted: #8b97b3; --accent: #4d9fff; --accent2: #ffb84d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 18px; padding: 12px 20px; background: var(--panel); border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+  h1 { font-size: 19px; margin: 0; }
+  h1 .pk { color: var(--accent2); }
+  .tabs { display: flex; gap: 6px; margin-left: auto; }
+  .tabs button { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel2); color: var(--muted); cursor: pointer; font-size: 14px; }
+  .tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  main { display: flex; flex-direction: column; height: calc(100vh - 59px); }
+  .toolbar { display: flex; gap: 10px; padding: 12px 20px; flex-wrap: wrap; align-items: center; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .toolbar input[type="search"], .toolbar select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: 14px; min-width: 120px;
+  }
+  .toolbar input[type="search"] { min-width: 240px; }
+  .toolbar label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13px; cursor: pointer; }
+  .toolbar .grow { flex: 1; }
+  .toolbar button.action { padding: 8px 14px; border-radius: 8px; border: none; background: var(--accent2); color: #241703; font-weight: 600; cursor: pointer; }
+  .toolbar input[type="number"] {
+    padding: 8px 6px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: 14px; width: 92px;
+  }
+  .toolbar .grp { display: flex; align-items: center; gap: 4px; }
+  .toolbar .grp > span { color: var(--muted); font-size: 12px; margin-right: 2px; }
+  .typebox { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+  .typebox label { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+  .typebox label:has(input:checked) { color: var(--text); font-weight: 600; }
+  .toolbar button.toggle { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel2); color: var(--text); cursor: pointer; font-size: 14px; }
+  .toolbar button.toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .pinbtn { padding: 2px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel2); color: var(--muted); cursor: pointer; font-size: 12px; }
+  .pinbtn:hover { border-color: var(--accent); color: var(--text); }
+  .pinbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pinned-strip { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 20px; background: var(--panel); border-bottom: 1px solid var(--border); min-height: 38px; }
+  .pinned-strip .title { color: var(--muted); font-size: 13px; margin-right: 4px; }
+  .pinchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; background: var(--panel2); border: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .pinchip:hover { border-color: var(--accent); }
+  .pinchip .num { color: var(--muted); font-size: 11px; }
+  .pinchip .rm { color: var(--muted); cursor: pointer; padding: 0 3px; }
+  .pinchip .rm:hover { color: #ff9d9d; }
+  .content { display: flex; flex: 1; min-height: 0; }
+  .results { flex: 1.4; overflow: auto; padding: 14px 20px; min-width: 0; }
+  .detail { flex: 1; overflow: auto; padding: 14px 20px; border-left: 1px solid var(--border); background: var(--panel); min-width: 320px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; cursor: pointer; user-select: none; }
+  th.sorted { color: var(--accent2); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr.selected { background: var(--panel2); }
+  td.best { color: var(--accent2); font-weight: 700; }
+  td .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: var(--panel2); margin-right: 4px; }
+  .badge.gen { background: #2c4d22; color: #9be37a; }
+  .badge.legendary { background: #4d2c22; color: #ffb84d; }
+  .badge.mythical { background: #3a224d; color: #d09bff; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 14px; color: var(--muted); }
+  .pager button { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel2); color: var(--text); cursor: pointer; }
+  .pager button:disabled { opacity: .4; cursor: default; }
+  .species-table { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; }
+  .detail h2 { margin: 0 0 2px; }
+  .detail .latin { color: var(--muted); font-style: italic; margin-bottom: 10px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 12px 0; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .stats { margin: 10px 0; }
+  .statrow { display: grid; grid-template-columns: 90px 1fr 46px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .bar { height: 9px; border-radius: 5px; background: var(--panel2); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { padding: 3px 10px; border-radius: 12px; font-size: 12px; background: var(--panel2); }
+  .chip.bad { background: #4d2222; color: #ff9d9d; }
+  .chip.good { background: #22422d; color: #8ce6b0; }
+  .chip.zero { background: #333; color: #bbb; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(5,8,15,.75); display: none; align-items: center; justify-content: center; z-index: 10; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; max-width: 92vw; max-height: 92vh; overflow: auto; }
+  .modal h2 { margin-top: 0; }
+  .close { position: absolute; margin: 0; }
+  .modal-wrap { position: relative; }
+  .modal-wrap .close { top: 10px; right: 12px; position: absolute; background: var(--panel2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+  .attack { border-left: 3px solid var(--accent); padding: 4px 10px; margin: 8px 0; background: var(--panel2); border-radius: 0 8px 8px 0; }
+  .attack .cost { color: var(--muted); font-size: 12px; }
+  .attack .damage { color: var(--accent2); font-weight: 700; }
+  .species-table { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 6px; }
+  .species-table table { margin: 0; }
+  .species-table th { position: sticky; top: 0; background: var(--panel); }
+  .species-table tbody tr:hover { background: var(--accent); color: #fff; cursor: pointer; }
+  .error { color: #ff9d9d; padding: 20px; }
+  @media (max-width: 900px) { .content { flex-direction: column; } .detail { border-left: none; border-top: 1px solid var(--border); } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="pk">Poké</span>dex interactif</h1>
+  <span class="hint" id="catalog-info"></span>
+  <nav class="tabs">
+    <button id="tab-dex" class="active">Pokédex</button>
+    <button id="tab-cards">Cartes TCG</button>
+  </nav>
+</header>
+
+<main>
+  <div class="toolbar" id="toolbar-dex">
+    <input type="search" id="dex-q" placeholder="Rechercher un Pokémon (FR ou EN)…">
+    <select id="dex-type"><option value="">Tous les types</option></select>
+    <select id="dex-gen"><option value="">Toutes générations</option></select>
+    <div class="grp"><span>N°</span>
+      <input type="number" id="dex-min" min="1" max="1025" placeholder="min">
+      <input type="number" id="dex-max" min="1" max="1025" placeholder="max">
+    </div>
+    <label><input type="checkbox" id="dex-legendary"> Légendaires</label>
+    <label><input type="checkbox" id="dex-mythical"> Mythiques</label>
+    <select id="dex-sort">
+      <option value="id">Tri : N°</option>
+      <option value="name">Tri : Nom</option>
+      <option value="stage">Tri : Stade</option>
+    </select>
+    <button class="toggle" id="dex-only-selected">Sélection seule</button>
+    <button class="action" id="dex-reset">Réinitialiser</button>
+  </div>
+
+  <div class="pinned-strip" id="dex-pinned" style="display:none">
+    <span class="title">Épinglés (cliquer = fiche, × = retirer)</span>
+  </div>
+
+  <div class="toolbar" id="toolbar-cards" style="display:none">
+    <select id="card-rarity"><option value="">Toutes raretés</option></select>
+    <select id="card-set"><option value="">Toutes extensions</option></select>
+    <select id="card-gen"><option value="">Toutes générations</option></select>
+    <select id="card-stage"><option value="">Tous les stades</option></select>
+    <div class="typebox" id="card-types"></div>
+    <div class="grp"><span>N° Pokédex</span>
+      <input type="number" id="card-min" min="1" max="1025" placeholder="min">
+      <input type="number" id="card-max" min="1" max="1025" placeholder="max">
+    </div>
+    <div class="grp"><span>PV</span>
+      <input type="number" id="card-hp-min" min="0" placeholder="min">
+      <input type="number" id="card-hp-max" min="0" placeholder="max">
+    </div>
+    <div class="grp"><span>Année de sortie</span>
+      <input type="number" id="card-year-min" min="1999" max="2026" placeholder="min">
+      <input type="number" id="card-year-max" min="1999" max="2026" placeholder="max">
+    </div>
+    <select id="card-sort">
+      <option value="api">Tri : Set / numéro</option>
+      <option value="name">Tri : Nom</option>
+      <option value="number">Tri : N° Pokédex</option>
+      <option value="hp">Tri : PV</option>
+      <option value="price">Tri : Prix</option>
+    </select>
+    <button class="action" id="card-reset">Réinitialiser</button>
+  </div>
+
+  <div class="content">
+    <section class="results" id="results"></section>
+    <aside class="detail" id="detail"><p class="hint">Sélectionnez une ligne pour afficher le détail.</p></aside>
+  </div>
+</main>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal-wrap">
+    <button class="close" id="modal-close">Fermer</button>
+    <div class="modal" id="modal"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+let META = null;
+let PAGES = { dex: 1, cards: 1 };
+let PER = { dex: 50, cards: 48 };
+let lastCardQuery = '';
+
+// ---------- initialisation ----------
+async function loadMeta() {
+  META = await (await fetch('/api/meta')).json();
+  for (const t of META.types) {
+    $('dex-type').insertAdjacentHTML('beforeend', `<option value="${t.id}">${t.fr}</option>`);
+  }
+  for (const g of META.generations) {
+    $('dex-gen').insertAdjacentHTML('beforeend', `<option value="${g}">Génération ${g}</option>`);
+  }
+  for (const t of META.card_types) {
+    $('card-types').insertAdjacentHTML('beforeend',
+      `<label title="${t.key}"><input type="checkbox" value="${t.key}">${t.fr}</label>`);
+  }
+  for (const r of META.rarities) {
+    $('card-rarity').insertAdjacentHTML('beforeend', `<option value="${r}">${r}</option>`);
+  }
+  for (const s of META.sets) {
+    $('card-set').insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name} — ${s.series}</option>`);
+  }
+  for (const g of META.generations) {
+    $('card-gen').insertAdjacentHTML('beforeend', `<option value="${g}">Génération ${g}</option>`);
+  }
+  // Tous les stades présents dans le catalogue, avec leur effectif.
+  for (const s of META.stages) {
+    $('card-stage').insertAdjacentHTML('beforeend',
+      `<option value="${s.key}">${s.fr} (${s.count})</option>`);
+  }
+}
+
+function dexParams() {
+  const p = new URLSearchParams();
+  if ($('dex-q').value) p.set('q', $('dex-q').value);
+  if ($('dex-type').value) p.set('type', $('dex-type').value);
+  if ($('dex-gen').value) p.set('gen', $('dex-gen').value);
+  if ($('dex-min').value) p.set('min', $('dex-min').value);
+  if ($('dex-max').value) p.set('max', $('dex-max').value);
+  if ($('dex-legendary').checked) p.set('legendary', 'true');
+  if ($('dex-mythical').checked) p.set('mythical', 'true');
+  p.set('sort', $('dex-sort').value || 'id');
+  p.set('page', PAGES.dex);
+  p.set('per_page', PER.dex);
+  return p.toString();
+}
+
+function cardParams() {
+  const p = new URLSearchParams();
+  const types = [...document.querySelectorAll('#card-types input:checked')].map(i => i.value);
+  if (types.length) p.set('types', types.join(','));
+  if ($('card-rarity').value) p.set('rarity', $('card-rarity').value);
+  if ($('card-set').value) p.set('set', $('card-set').value);
+  if ($('card-gen').value) p.set('gen', $('card-gen').value);
+  if ($('card-stage').value) p.set('stage', $('card-stage').value);
+  if ($('card-min').value) p.set('min', $('card-min').value);
+  if ($('card-max').value) p.set('max', $('card-max').value);
+  if ($('card-hp-min').value) p.set('hp_min', $('card-hp-min').value);
+  if ($('card-hp-max').value) p.set('hp_max', $('card-hp-max').value);
+  if ($('card-year-min').value) p.set('year_min', $('card-year-min').value);
+  if ($('card-year-max').value) p.set('year_max', $('card-year-max').value);
+  p.set('sort', $('card-sort').value || 'api');
+  p.set('page', PAGES.cards);
+  p.set('per_page', PER.cards);
+  return p.toString();
+}
+
+// ---------- sélection épinglée (Pokédex) ----------
+const PIN_LIMIT = 16;
+let pinned = new Set(JSON.parse(localStorage.getItem('pokedex-pinned') || '[]'));
+let onlySelected = false;
+
+function savePinned() {
+  localStorage.setItem('pokedex-pinned', JSON.stringify([...pinned]));
+}
+
+/// Rend la bande des Pokémon épinglés sous la barre de filtres.
+function renderPinned() {
+  const strip = $('dex-pinned');
+  const ids = [...pinned].sort((a, b) => a - b);
+  if (!ids.length) {
+    strip.style.display = 'none';
+    $('dex-only-selected').classList.remove('active');
+    return;
+  }
+  strip.style.display = 'flex';
+  strip.innerHTML = `<span class="title">Épinglés ${pinned.size}/${PIN_LIMIT} (cliquer = fiche, × = retirer)</span>`;
+  for (const id of ids) {
+    const chip = document.createElement('span');
+    chip.className = 'pinchip';
+    chip.innerHTML = `<span class="num">#${id}</span><span class="nm"></span><span class="rm">×</span>`;
+    fetch('/api/pokemons/' + id)
+      .then(r => r.json())
+      .then(p => { chip.querySelector('.nm').textContent = p.name_fr || p.name_en || id; });
+    chip.addEventListener('click', (e) => {
+      if (e.target.classList.contains('rm')) {
+        pinned.delete(id);
+        savePinned();
+        renderPinned();
+        loadDex();
+      } else {
+        showPokemon(id);
+      }
+    });
+    strip.appendChild(chip);
+  }
+}
+
+/// Épingle un Pokémon ; faux (et le bandeau s'indique) si la limite est atteinte.
+function togglePin(id) {
+  if (pinned.has(id)) {
+    pinned.delete(id);
+  } else if (pinned.size >= PIN_LIMIT) {
+    const strip = $('dex-pinned');
+    const note = document.createElement('span');
+    note.className = 'title';
+    note.style.color = '#ffb84d';
+    note.textContent = `Maximum ${PIN_LIMIT} épinglés`;
+    strip.appendChild(note);
+    setTimeout(() => note.remove(), 2000);
+    return false;
+  } else {
+    pinned.add(id);
+  }
+  savePinned();
+  renderPinned();
+  return true;
+}
+
+// ---------- rendu Pokédex ----------
+async function loadDex() {
+  // Mode « sélection seule » : les épinglés, même table, sans pagination.
+  if (onlySelected && pinned.size) {
+    const res = await (await fetch('/api/pokemons?ids=' + encodeURIComponent([...pinned].join(',')))).json();
+    PAGES.dex = 1;
+    $('results').innerHTML = dexTable(res.items);
+    bindDexRows();
+    return;
+  }
+  const res = await (await fetch('/api/pokemons?' + dexParams())).json();
+  if (res.error) { $('results').innerHTML = `<p class="error">${res.error}</p>`; return; }
+  PAGES.dex = res.page;
+  $('results').innerHTML = dexTable(res.items) + pagerHtml('dex', res);
+  bindDexRows();
+  bindPager('dex', loadDex);
+}
+
+function dexTable(items) {
+  let html = `<table><thead><tr>
+    <th>N°</th><th>Nom</th><th>Types</th><th>Gén.</th><th>Stade</th><th>Évolue en</th><th>Lignée</th><th>Ép.</th>
+  </tr></thead><tbody>`;
+  for (const p of items) {
+    const on = pinned.has(p.id) ? 'on' : '';
+    html += `<tr data-id="${p.id}">
+      <td>#${String(p.id).padStart(4, '0')}</td>
+      <td>${p.name_fr}${p.legendary ? ' <span class="badge legendary">L</span>' : ''}${p.mythical ? ' <span class="badge mythical">M</span>' : ''}</td>
+      <td>${p.types.map(t => `<span class="badge">${t}</span>`).join('')}</td>
+      <td><span class="badge gen">${p.generation}</span></td>
+      <td>${p.stage}</td>
+      <td>${p.evolutions.length ? p.evolutions.join(', ') : '—'}</td>
+      <td class="line">${p.line}</td>
+      <td><button class="pinbtn ${on}" data-pin="${p.id}" title="Épingler (garde ce Pokémon actif pendant les recherches)">${pinned.has(p.id) ? '×' : '+'}</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function bindDexRows() {
+  $('results').querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pinbtn')) return;
+      $('results').querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      showPokemon(Number(tr.dataset.id));
+    });
+  });
+  $('results').querySelectorAll('.pinbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (togglePin(Number(btn.dataset.pin))) {
+        const on = pinned.has(Number(btn.dataset.pin));
+        btn.classList.toggle('on', on);
+        btn.textContent = on ? '×' : '+';
+        if (onlySelected) loadDex();
+      }
+    });
+  });
+}
+
+async function showPokemon(id) {
+  const p = await (await fetch('/api/pokemons/' + id)).json();
+  if (!p.id) { $('detail').innerHTML = '<p class="error">Introuvable</p>'; return; }
+  const s = p.stats;
+  const statMax = { total: 720 };
+  const statRow = (label, v, max = 255) =>
+    `<div class="statrow"><span>${label}</span><span class="bar"><i style="width:${Math.min(100, v / max * 100)}%"></i></span><b>${v}</b></div>`;
+  const chips = (list, cls) => list.length ? list.map(x => `<span class="chip ${cls}">${x}</span>`).join('') : '<span class="hint">—</span>';
+  $('detail').innerHTML = `
+    <h2>#${String(p.id).padStart(4, '0')} ${p.name_fr}</h2>
+    <div class="latin">${p.name_en} · ${p.genus_fr}</div>
+    <div class="chips">
+      <span class="badge gen">Génération ${p.generation}</span>
+      ${p.types.map(t => `<span class="badge">${t}</span>`).join('')}
+      ${p.legendary ? '<span class="badge legendary">Légendaire</span>' : ''}
+      ${p.mythical ? '<span class="badge mythical">Mythique</span>' : ''}
+    </div>
+    <dl class="kv">
+      <dt>Stade</dt><dd>${p.stage}</dd>
+      <dt>Évolue</dt><dd>${p.evolutions.length ? p.evolutions.join(', ') : 'Non'}</dd>
+      <dt>Pré-évolution</dt><dd>${p.evolves_from || '—'}</dd>
+      <dt>Lignée</dt><dd>${p.evolution_line.join(' → ')}</dd>
+      <dt>Taille</dt><dd>${p.height_m.toFixed(1).replace('.', ',')} m</dd>
+      <dt>Poids</dt><dd>${p.weight_kg.toFixed(1).replace('.', ',')} kg</dd>
+    </dl>
+    <div class="stats">
+      <h3>Stats de base</h3>
+      ${statRow('PV', s.hp)}${statRow('Attaque', s.attack)}${statRow('Défense', s.defense)}
+      ${statRow('Atq. spé', s.special_attack)}${statRow('Déf. spé', s.special_defense)}
+      ${statRow('Vitesse', s.speed)}${statRow('Total', s.total, statMax.total)}
+    </div>
+    <h3>Efficacité des types contre lui</h3>
+    <div class="kv">
+      <dt>×4</dt><dd><div class="chips">${chips(p.effectiveness.x4, 'bad')}</div></dd>
+      <dt>×2</dt><dd><div class="chips">${chips(p.effectiveness.x2, 'bad')}</div></dd>
+      <dt>×½</dt><dd><div class="chips">${chips(p.effectiveness.half, 'good')}</div></dd>
+      <dt>×¼</dt><dd><div class="chips">${chips(p.effectiveness.quarter, 'good')}</div></dd>
+      <dt>Immunités</dt><dd><div class="chips">${chips(p.effectiveness.immune, 'zero')}</div></dd>
+    </div>`;
+}
+
+// ---------- rendu Cartes ----------
+async function loadCards() {
+  const res = await (await fetch('/api/cards?' + cardParams())).json();
+  if (res.error) { $('results').innerHTML = `<p class="error">${res.error}</p>`; return; }
+  PAGES.cards = res.page;
+  lastCardQuery = res;
+  let html = `<table><thead><tr>
+    <th>Carte</th><th>Types</th><th>Édition</th><th>N°</th><th>PV</th><th>Rareté</th><th>Année</th>
+  </tr></thead><tbody>`;
+  for (const c of res.items) {
+    const set = c.set && c.set.name ? c.set.name : c.supertype;
+    html += `<tr data-id="${c.id}" title="${(c.subtypes || []).join(', ')}">
+      <td>${c.name}</td>
+      <td>${(c.types || []).join(', ') || '—'}</td>
+      <td>${set}</td>
+      <td>${c.number}</td>
+      <td>${c.hp || '—'}</td>
+      <td>${c.rarity || '—'}</td>
+      <td>${c.year || '—'}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>' + pagerHtml('cards', res);
+  $('results').innerHTML = html;
+  $('results').querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      $('results').querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      showCard(tr.dataset.id);
+    });
+  });
+  bindPager('cards', loadCards);
+}
+
+async function showCard(id) {
+  const c = await (await fetch('/api/cards/' + encodeURIComponent(id))).json();
+  if (!c.id) { alert('Carte introuvable'); return; }
+  const set = c.set || {};
+  const list = (arr, fmt) => (arr || []).map(fmt).join('') || '<span class="hint">—</span>';
+  let html = `
+    <div>
+      <h2>${c.name}</h2>
+      <div class="latin">${c.name_en && c.name_en !== c.name ? c.name_en + ' · ' : ''}${c.supertype}${c.subtypes && c.subtypes.length ? ' · ' + c.subtypes.join(', ') : ''}${c.rarity ? ' · ' + c.rarity : ''}</div>
+      ${c.generations && c.generations.length ? `<div class="chips">${c.generations.map(g => `<span class="badge gen">Génération ${g}</span>`).join('')}</div>` : ''}
+      <dl class="kv">
+        ${c.hp ? `<dt>PV</dt><dd>${c.hp}</dd>` : ''}
+        ${c.types.length ? `<dt>Types</dt><dd>${c.types.join(', ')}</dd>` : ''}
+        ${c.evolves_from ? `<dt>Évolue de</dt><dd>${c.evolves_from}</dd>` : ''}
+        ${set.name ? `<dt>Extension</dt><dd>${set.series} — ${set.name}</dd>` : ''}
+        ${set.name ? `<dt>Numéro</dt><dd>${c.id.split('-')[1]} / ${set.total}</dd>` : ''}
+        ${set.release_date ? `<dt>Sortie</dt><dd>${set.release_date.replaceAll('/', '-')}</dd>` : ''}
+        ${set.ptcgo_code ? `<dt>Code TCG Live</dt><dd>${set.ptcgo_code}</dd>` : ''}
+        ${c.retreat_cost ? `<dt>Coût de repli</dt><dd>${c.retreat_cost}</dd>` : ''}
+        ${c.artist ? `<dt>Illustrateur</dt><dd>${c.artist}</dd>` : ''}
+        ${c.market_price ? `<dt>Prix marché</dt><dd><b style="color:#8ce6b0">${c.market_price.toFixed(2)} $</b></dd>` : ''}
+        ${c.national_pokedex_numbers && c.national_pokedex_numbers.length ? `<dt>Pokédex</dt><dd><a href="#" id="go-pokemon">#${c.national_pokedex_numbers[0]}</a></dd>` : ''}
+      </dl>
+      ${c.legalities && Object.keys(c.legalities).length ? `<h3>Légalités</h3><div class="chips">${Object.entries(c.legalities).map(([k, v]) => `<span class="chip">${k} : ${v}</span>`).join('')}</div>` : ''}
+      ${c.attacks && c.attacks.length ? `<h3>Attaques</h3>${c.attacks.map(a => `
+        <div class="attack">
+          <div><b>${a.name}</b> ${a.damage ? `<span class="damage">${a.damage}</span>` : ''}
+          <div class="cost">Coût : ${a.cost.join(' + ') || '—'}</div>
+          ${a.text ? `<div class="hint">${a.text}</div>` : ''}</div>
+        </div>`).join('')}` : ''}
+      ${c.weaknesses.length ? `<h3>Faiblesses</h3><div class="chips">${list(c.weaknesses, w => `<span class="chip bad">${w.type} ${w.value}</span>`)}</div>` : ''}
+      ${c.resistances.length ? `<h3>Résistances</h3><div class="chips">${list(c.resistances, r => `<span class="chip good">${r.type} ${r.value}</span>`)}</div>` : ''}
+      ${c.flavor_text ? `<h3>Flavor text</h3><p class="hint">${c.flavor_text}</p>` : ''}
+      ${speciesSection(c)}
+    </div>`;
+  $('modal').innerHTML = html;
+  $('modal-bg').classList.add('open');
+  const go = $('go-pokemon');
+  if (go) go.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('modal-bg').classList.remove('open');
+    switchTab('dex');
+    showPokemon(Number(go.textContent.slice(1)));
+  });
+  loadSpeciesCards(c);
+}
+
+/// Conteneur du tableau des cartes de la même espèce.
+function speciesSection(c) {
+  const n = c.national_pokedex_numbers && c.national_pokedex_numbers[0];
+  if (!n) return '';
+  return `<h3 id="species-title">Toutes les cartes de cette espèce</h3>
+    <div class="species-table" id="species-cards"><p class="hint">Chargement…</p></div>`;
+}
+
+/// Tableau de toutes les cartes de l'espèce : nom, PV, année, rareté, édition.
+async function loadSpeciesCards(c) {
+  const n = c.national_pokedex_numbers && c.national_pokedex_numbers[0];
+  if (!n || !$('species-cards')) return;
+  const res = await (await fetch(`/api/cards?min=${n}&max=${n}&per_page=500&sort=api`)).json();
+  const holder = $('species-cards');
+  if (!holder) return; // fenêtre fermée entre-temps
+  if (res.error || !res.items || !res.items.length) {
+    holder.innerHTML = '<p class="hint">Aucune autre carte trouvée.</p>';
+    return;
+  }
+  $('species-title').textContent = `Toutes les cartes de cette espèce (${res.total})`;
+  let html = `<table><thead><tr><th>Carte</th><th>PV</th><th>Année</th><th>Rareté</th><th>Édition</th></tr></thead><tbody>`;
+  for (const x of res.items) {
+    const stage = (x.subtypes || []).join(', ');
+    html += `<tr data-id="${x.id}" title="${stage}">
+      <td>${x.name}</td>
+      <td>${x.hp || '—'}</td>
+      <td>${x.year || '—'}</td>
+      <td>${x.rarity || '—'}</td>
+      <td>${x.set && x.set.name ? x.set.name : '—'}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  if (res.total > res.items.length) {
+    html += `<p class="hint" style="padding:6px">${res.items.length} premières sur ${res.total}</p>`;
+  }
+  holder.innerHTML = html;
+  holder.querySelectorAll('tr[data-id]').forEach(tr => {
+    tr.addEventListener('click', () => showCard(tr.dataset.id));
+  });
+}
+
+// ---------- pagination & onglets ----------
+function pagerHtml(kind, res) {
+  return `<div class="pager">
+    <button data-nav="${kind}" data-page="1" ${res.page <= 1 ? 'disabled' : ''}>« Première</button>
+    <button data-nav="${kind}" data-page="${res.page - 1}" ${res.page <= 1 ? 'disabled' : ''}>‹ Précédente</button>
+    <span>Page ${res.page} / ${res.pages} — ${res.total} résultat(s)</span>
+    <button data-nav="${kind}" data-page="${res.page + 1}" ${res.page >= res.pages ? 'disabled' : ''}>Suivante ›</button>
+    <button data-nav="${kind}" data-page="${res.pages}" ${res.page >= res.pages ? 'disabled' : ''}>Dernière »</button>
+  </div>`;
+}
+
+function bindPager(kind, loader) {
+  document.querySelectorAll(`button[data-nav="${kind}"]`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      PAGES[kind] = Number(btn.dataset.page);
+      loader();
+      $('results').scrollTo({ top: 0 });
+    });
+  });
+}
+
+let TAB = 'dex';
+function switchTab(tab) {
+  TAB = tab;
+  $('tab-dex').classList.toggle('active', tab === 'dex');
+  $('tab-cards').classList.toggle('active', tab === 'cards');
+  $('toolbar-dex').style.display = tab === 'dex' ? 'flex' : 'none';
+  $('toolbar-cards').style.display = tab === 'cards' ? 'flex' : 'none';
+  $('dex-pinned').style.display = tab === 'dex' && pinned.size ? 'flex' : 'none';
+  $('detail').innerHTML = '<p class="hint">Sélectionnez une ligne pour afficher le détail.</p>';
+  if (tab === 'dex') loadDex(); else loadCards();
+}
+
+function bindDexControls() {
+  const reload = () => { PAGES.dex = 1; loadDex(); };
+  $('dex-q').addEventListener('input', reload);
+  for (const id of ['dex-type', 'dex-gen', 'dex-legendary', 'dex-mythical', 'dex-sort']) {
+    $(id).addEventListener('change', reload);
+  }
+  for (const id of ['dex-min', 'dex-max']) {
+    $(id).addEventListener('input', reload);
+  }
+  $('dex-only-selected').addEventListener('click', () => {
+    onlySelected = !onlySelected;
+    localStorage.setItem('pokedex-only-selected', onlySelected ? '1' : '0');
+    $('dex-only-selected').classList.toggle('active', onlySelected && pinned.size > 0);
+    reload();
+  });
+  $('dex-reset').addEventListener('click', () => {
+    for (const id of ['dex-q', 'dex-min', 'dex-max', 'dex-type', 'dex-gen']) $(id).value = '';
+    $('dex-legendary').checked = false; $('dex-mythical').checked = false;
+    $('dex-sort').value = 'id'; reload();
+  });
+}
+
+function bindCardControls() {
+  const reload = () => { PAGES.cards = 1; loadCards(); };
+  for (const id of ['card-rarity', 'card-set', 'card-gen', 'card-stage', 'card-sort']) {
+    $(id).addEventListener('change', reload);
+  }
+  for (const id of ['card-min', 'card-max', 'card-hp-min', 'card-hp-max', 'card-year-min', 'card-year-max']) {
+    $(id).addEventListener('input', reload);
+  }
+  $('card-types').addEventListener('change', reload);
+  $('card-reset').addEventListener('click', () => {
+    for (const id of ['card-rarity', 'card-set', 'card-gen', 'card-stage',
+                      'card-min', 'card-max', 'card-hp-min', 'card-hp-max', 'card-year-min', 'card-year-max']) {
+      $(id).value = '';
+    }
+    document.querySelectorAll('#card-types input:checked').forEach(i => i.checked = false);
+    $('card-sort').value = 'api'; reload();
+  });
+}
+
+// ---------- démarrage ----------
+(async () => {
+  $('tab-dex').addEventListener('click', () => switchTab('dex'));
+  $('tab-cards').addEventListener('click', () => switchTab('cards'));
+  $('modal-close').addEventListener('click', () => $('modal-bg').classList.remove('open'));
+  $('modal-bg').addEventListener('click', (e) => { if (e.target === $('modal-bg')) $('modal-bg').classList.remove('open'); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('modal-bg').classList.remove('open'); });
+  await loadMeta();
+  bindDexControls();
+  bindCardControls();
+  renderPinned();
+  onlySelected = localStorage.getItem('pokedex-only-selected') === '1';
+  $('dex-only-selected').classList.toggle('active', onlySelected && pinned.size > 0);
+  const info = await (await fetch('/api/pokemons?per_page=1')).json();
+  $('catalog-info').textContent = info.total + ' Pokémon';
+  loadDex();
+})();
+</script>
+</body>
+</html>

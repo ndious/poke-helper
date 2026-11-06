@@ -1,0 +1,38 @@
+[package]
+name = "pokedex"
+version = "0.1.0"
+edition = "2021"
+description = "Base de données interactive des Pokémon, 100% offline"
+license = "MIT"
+default-run = "pokedex-web"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+csv = "1"
+anyhow = "1"
+ratatui = "0.29"
+crossterm = "0.28"
+ureq = { version = "2", features = ["json"] }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "signal"] }
+
+[lib]
+name = "pokedex"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pokedex"
+path = "src/bin/pokedex.rs"
+
+[[bin]]
+name = "pokedex-importer"
+path = "src/bin/importer.rs"
+
+[[bin]]
+name = "pokedex-tcg-fetch"
+path = "src/bin/tcg_fetch.rs"
+
+[[bin]]
+name = "pokedex-web"
+path = "src/bin/pokedex_web.rs"
